@@ -57,7 +57,7 @@ let ColorMeshLayer = ForecastLayer.extend({
     this.downloadedForecastTime = this.currentForecastTime.clone()
 
     let url = ''.concat('https://www.bliasolutions.com/UKAir2017/', this.options.elements[0], `_${this.downloadedForecastTime.format('YYYY_MM_DD_HH')}`, '.csv')
-    let req = fetch(url)
+    let req = window.fetch(url)
     let self = this
 
     return req.then(response => { if (response.ok) { response.text().then(text => self.setData(text)) } })
