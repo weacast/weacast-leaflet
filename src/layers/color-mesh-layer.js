@@ -5,7 +5,6 @@ import 'leaflet-pixi-overlay'
 import { ForecastLayer } from './forecast-layer'
 import { getNearestForecastTime } from 'weacast-core/common'
 import { createColorMap } from 'weacast-core/client'
-// import { MeshRenderer } from '../mesh-renderer'
 
 let ColorMeshLayer = ForecastLayer.extend({
 
@@ -38,8 +37,9 @@ let ColorMeshLayer = ForecastLayer.extend({
         void main() {
           gl_FragColor.rgb = vec3(vColor[0]*alpha, vColor[1]*alpha, vColor[2]*alpha);
           gl_FragColor.a = vColor[3]*alpha;
+
         }`, {
-            alpha: this.opacity
+            alpha: this.options.opacity
         })
     this.pixiRoot = new PIXI.Container()
     let pixiOverlayOptions = Object.assign({ autoPreventDefault: false }, options)
@@ -56,35 +56,11 @@ let ColorMeshLayer = ForecastLayer.extend({
       if (this.downloadedForecastTime && this.downloadedForecastTime.isSame(this.currentForecastTime)) return
       this.downloadedForecastTime = this.currentForecastTime.clone()
 
-      // let req = fetch('statics/UKNO2_2019_08_05_06.csv')
-      let req = fetch('https://www.bliasolutions.com/UKAir2017/UKNO2_2019_08_06_06.csv')
+      let url = ''.concat('https://www.bliasolutions.com/UKAir2017/', this.options.elements[0], `_${this.downloadedForecastTime.format('YYYY_MM_DD_HH')}`, '.csv')
+      let req = fetch(url)
       let self = this
 
-      /*
-      return req.then(function(response) {
-          if (response.ok) {
-              response.text().then(function(text) { self.setData(text) })
-          }
-      })
-      */
-
       return req.then(response => { if (response.ok) { response.text().then(text => self.setData(text)) } })
-
-      /*
-      // Query data for current time
-      let query = this.getQuery()
-      let queries = []
-      for (let element of this.forecastElements) {
-          const serviceName = this.forecastModel.name + '/' + element
-          queries.push(this.api.getService(serviceName).find(query))
-      }
-
-      return Promise.all(queries)
-          .then(results => {
-          // To be reactive directly set data after dow nload, flatten because find returns an array even if a single element is selected
-              this.setData([].concat(...results))
-          })
-          */
   },
 
   setData (data) {
@@ -104,29 +80,13 @@ let ColorMeshLayer = ForecastLayer.extend({
           return isNaN(value[3]) ? accu : [ Math.min(accu[0], value[3]), Math.max(accu[1], value[3])]
       }, [csv.data[0][3], csv.data[0][3]])
 
-      this.colorMap = createColorMap(this.options, [bounds[1], bounds[0]])
+      this.colorMap = createColorMap(this.options, [bounds[0], bounds[1]])
 
       this.pixiRoot.removeChildren()
       // this.buildMesh(csv)
       this.csv = csv
       this.baseLayer.redraw()
       ForecastLayer.prototype.setData.call(this, data)
-      /*
-    if (data.length > 0) {
-      this.minValue = data[0].minValue
-      this.maxValue = data[0].maxValue
-      this.colorMap = createColorMap(this.options,
-        (this.options.invertScale ? [this.maxValue, this.minValue] : [this.minValue, this.maxValue]))
-      this.gridRenderer.setGridData(data[0].data)
-      this.gridRenderer.setColorMap(this.colorMap)
-      this.gridRenderer.setOpacity(this.options.opacity)
-      this.baseLayer.redraw()
-      ForecastLayer.prototype.setData.call(this, data)
-    } else {
-      this.gridRenderer.setGridData(null)
-      this.hasData = false
-    }
-    */
   },
 
   renderMesh (utils) {
@@ -141,136 +101,102 @@ let ColorMeshLayer = ForecastLayer.extend({
         return this.latLngBounds
     },
 
-    buildMesh (utils) {
-        let data = this.csv
-        if (data === undefined)
+    buildMesh(utils) {
+        let csv = this.csv
+        if (csv === undefined)
             return
 
-        let position = new Float32Array(2 * (data.data.length - 4))
-        let color    = new Float32Array(4 * (data.data.length - 4))
-        let index    = new Uint16Array(3 * (data.data.length - 4))
-        // let index = new Uint16Array(6)
+        // compute lat/lon bounds
+        let latLonBounds = csv.data.reduce((accu, value) => {
+            let minLat = accu[0]
+            let maxLat = accu[1]
+            let minLon = accu[2]
+            let maxLon = accu[3]
+            if (!isNaN(value[1])) {
+                minLat = Math.min(minLat, value[1])
+                maxLat = Math.max(maxLat, value[1])
+            }
+            if (!isNaN(value[2])) {
+                minLon = Math.min(minLon, value[2])
+                maxLon = Math.max(maxLon, value[2])
+            }
+            return [minLat, maxLat, minLon, maxLon]
+        }, [csv.data[0][1], csv.data[0][1], csv.data[0][2], csv.data[0][2]])
 
-        let infos = new Map()
-        let lonstart = undefined
-        let prevlon = undefined
+        // update spatial bounds
+        this.latLngBounds.extend([latLonBounds[0], latLonBounds[2]])
+        this.latLngBounds.extend([latLonBounds[1], latLonBounds[3]])
 
-        /*
-        let bounds = [0, 0, 0, 0]
-        let topLeft = undefined
-        let topRight = undefined
-        let bottomLeft = undefined
-        let bottomRight = undefined
-        */
+        // compute grid size based on bounds
+        let iLat = Math.ceil((latLonBounds[1] - latLonBounds[0]) / 0.05)
+        let iLon = Math.ceil((latLonBounds[3] - latLonBounds[2]) / 0.1)
 
+        // allocate data buffers
+        let position = new Float32Array(2 * (iLat+1) * (iLon+1))
+        let color    = new Float32Array(4 * (iLat+1) * (iLon+1))
+        let index    = new Uint16Array(6 * iLat * iLon)
+
+        // fill whole grid
         let idx = 0
-        for (let row = 4; row < data.data.length; ++row) {
-            let lat = data.data[row][1]
-            let lon = data.data[row][2]
-            let val = data.data[row][3]
+        let iidx = 0
+        for (let lo = 0; lo <= iLon; ++lo) {
+            for (let la = 0; la <= iLat; ++la) {
+                let latLon = [latLonBounds[0] + 0.05 * la, latLonBounds[2] + 0.1 * lo]
+                let pos = utils.latLngToLayerPoint(latLon)
+                position[idx * 2    ] = pos.x
+                position[idx * 2 + 1] = pos.y
+                color[idx * 4    ] = 0.0
+                color[idx * 4 + 1] = 0.0
+                color[idx * 4 + 2] = 0.0
+                color[idx * 4 + 3] = 0.0
+
+                if (lo !== 0 && la !== 0) {
+                    index[iidx++] = idx
+                    index[iidx++] = idx - 1
+                    index[iidx++] = idx - (iLat+1)
+                    index[iidx++] = idx - (iLat+1)
+                    index[iidx++] = idx - 1
+                    index[iidx++] = idx - (iLat+2)
+                }
+
+                ++idx
+            }
+        }
+
+        // fill actual data
+        for (let row = 0; row < csv.data.length; ++row) {
+            let lat = csv.data[row][1]
+            let lon = csv.data[row][2]
+            let val = csv.data[row][3]
 
             if (isNaN(lat) || isNaN(lon))
                 continue
 
-            if (lon != prevlon) {
-                if (prevlon !== undefined) {
-                    infos.set(prevlon, [lonstart, row-1])
-                }
-                lonstart = row
-                prevlon  = lon
-            }
+            // index in grid based on lat lon
+            let y = Math.ceil((lat - latLonBounds[0]) / 0.05)
+            let x = Math.ceil((lon - latLonBounds[2]) / 0.1)
+            let o = y+x*(iLat+1)
 
-            this.latLngBounds.extend([lat, lon])
-            let pos = utils.latLngToLayerPoint([lat, lon])
-
-            /*
-            if (topLeft === undefined) {
-                topLeft = pos
-                topRight = pos
-                bottomLeft = pos
-                bottomRight = pos
-            } else {
-                if (topLeft.x >= pos.x && topLeft.y >= pos.y) {
-                    topLeft = pos
-                    bounds[0] = idx
-                }
-                if (topRight.x <= pos.x && topRight.y >= pos.y) {
-                    topRight = pos
-                    bounds[1] = idx
-                }
-                if (bottomLeft.x >= pos.x && bottomLeft.y <= pos.y) {
-                    bottomLeft = pos
-                    bounds[2] = idx
-                }
-                if (bottomRight.x <= pos.x && bottomRight.y <= pos.y) {
-                    bottomRight = pos
-                    bounds[3] = idx
-                }
-            }
-            */
-
-            position[2*(row-4)  ] = pos.x
-            position[2*(row-4)+1] = pos.y
-            //let value = chroma(this.nodata.color)
+            // let pos   = utils.latLngToLayerPoint([lat, lon])
             let value = this.colorMap(val)
             let rgb   = value.gl()
-            color[4*(row-4)  ] = rgb[0]
-            color[4*(row-4)+1] = rgb[1]
-            color[4*(row-4)+2] = rgb[2]
-            color[4*(row-4)+3] = value.alpha()
 
-            ++idx
+            // position[2*o  ] = pos.x
+            // position[2*o+1] = pos.y
+            //let value = chroma(this.nodata.color)
+            color[4*o  ] = rgb[0]
+            color[4*o+1] = rgb[1]
+            color[4*o+2] = rgb[2]
+            color[4*o+3] = value.alpha()
         }
 
-        /*
-        index[0] = bounds[0]
-        index[1] = bounds[2]
-        index[2] = bounds[3]
-
-        index[3] = bounds[0]
-        index[4] = bounds[3]
-        index[5] = bounds[1]
-        */
-
-        let iindex = 0
-        for (let row = 4; row < data.data.length; ++row) {
-            let lat = data.data[row][1]
-            let lon = data.data[row][2]
-
-            if (isNaN(lat) || isNaN(lon))
-                continue
-
-            let i = infos.get(lon-0.1)
-            if (i === undefined)
-                continue
-
-            let minLat = data.data[i[0]][1]
-            let maxLat = data.data[i[1]][1]
-
-            if (lat < minLat || lat >= maxLat)
-                continue
-
-            let index0 = row;
-            let index1 = i[0] + Math.trunc((lat - minLat) / 0.05)
-            let index2 = index1 + 1;
-
-            if (index1 >= idx || index2 >= idx)
-                continue
-
-            index[++iindex] = index2;
-            index[++iindex] = index1;
-            index[++iindex] = index0;
-        }
-
-        // trim index array
-        // index.splice(iindex, index.length-iindex)
-
+        // build mesh
         let geometry = new PIXI.Geometry()
             .addAttribute('position', position, 2)
             .addAttribute('color', color, 4)
             .addIndex(index)
-        // let state = new PIXI.State()
-        //let mesh = new PIXI.Mesh(geometry, this.shader, state, PIXI.DRAW_MODES.POINTS)
+        // PixiJS doc says it improves slighly performances
+        geometry.interleave()
         let mesh = new PIXI.Mesh(geometry, this.shader)
         this.pixiRoot.addChild(mesh)
     },
