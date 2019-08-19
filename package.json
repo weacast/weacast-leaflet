@@ -53,6 +53,7 @@
     "lodash": "^4.17.4",
     "loglevel": "^1.6.1",
     "mathjs": "^5.2.2",
+    "papaparse": "5.0.1",
     "pixi.js": "5.0.4",
     "weacast-core": "^1.0.0"
   },
