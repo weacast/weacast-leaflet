@@ -40,8 +40,11 @@ export class BliaSolutionsMesh {
         uniform float alpha;
 
         void main() {
+          if (vColor.a != 1.0)
+            discard;
+
           gl_FragColor.rgb = vec3(vColor[0]*alpha, vColor[1]*alpha, vColor[2]*alpha);
-          gl_FragColor.a = vColor[3]*alpha;
+          gl_FragColor.a = alpha;
 
         }`, {
           alpha: this.options.opacity
@@ -125,7 +128,7 @@ export class BliaSolutionsMesh {
 
     // allocate data buffers
     const position = new Float32Array(2 * (iLat + 1) * (iLon + 1))
-    const color = new Float32Array(4 * (iLat + 1) * (iLon + 1))
+    const color = new Uint8Array(4 * (iLat + 1) * (iLon + 1))
     const index = new Uint16Array(6 * iLat * iLon)
 
     // fill whole grid
@@ -137,10 +140,6 @@ export class BliaSolutionsMesh {
         const pos = utils.latLngToLayerPoint(latLon)
         position[idx * 2] = pos.x
         position[idx * 2 + 1] = pos.y
-        color[idx * 4] = 0.0
-        color[idx * 4 + 1] = 0.0
-        color[idx * 4 + 2] = 0.0
-        color[idx * 4 + 3] = 0.0
 
         if (lo !== 0 && la !== 0) {
           index[iidx++] = idx
@@ -168,28 +167,34 @@ export class BliaSolutionsMesh {
       const x = Math.ceil((lon - bounds[2]) / 0.1)
       const o = y + x * (iLat + 1)
 
-      // let pos   = utils.latLngToLayerPoint([lat, lon])
       const mapped = this.colorMap(val)
-      const glcolor = mapped.gl()
+      /*
+      const rgb = mapped.gl()
+      color[4 * o] = rgb[0]
+      color[4 * o + 1] = rgb[1]
+      color[4 * o + 2] = rgb[2]
+      color[4 * o + 3] = 1.0
+      */
 
-      // position[2*o  ] = pos.x
-      // position[2*o+1] = pos.y
-      // let value = chroma(this.nodata.color)
-      color[4 * o] = glcolor[0]
-      color[4 * o + 1] = glcolor[1]
-      color[4 * o + 2] = glcolor[2]
-      color[4 * o + 3] = mapped.alpha()
+      const rgb = mapped.rgb()
+      color[4 * o] = rgb[0]
+      color[4 * o + 1] = rgb[1]
+      color[4 * o + 2] = rgb[2]
+      color[4 * o + 3] = 255
     }
 
     // build mesh
     let geometry = new PIXI.Geometry()
         .addAttribute('position', position, 2)
-        .addAttribute('color', color, 4)
+        // .addAttribute('color', color, 4)
+        .addAttribute('color', color, 4, true, PIXI.TYPES.UNSIGNED_BYTE)
         .addIndex(index)
     // PixiJS doc says it improves slighly performances
-    geometry.interleave()
+    // fails when using normalized UNSIGNED_BYTE color attribute
+    //geometry.interleave()
     const state = new PIXI.State()
     state.culling = true
+    state.blendMode = PIXI.BLEND_MODES.SCREEN
     this.mesh = new PIXI.Mesh(geometry, this.shader, state)
 
     // get rid of csv
