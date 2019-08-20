@@ -20,7 +20,7 @@ export class BliaSolutionsMesh {
 
     // make sure options has the required fields
     //  opacity (shader)
-    //   (colormap)
+    //  scale (colormap)
     //  elements[0] (fetch url)
 
     this.shader = PIXI.Shader.from(`
@@ -144,11 +144,11 @@ export class BliaSolutionsMesh {
 
         if (lo !== 0 && la !== 0) {
           index[iidx++] = idx
-          index[iidx++] = idx - 1
-          index[iidx++] = idx - (iLat + 1)
           index[iidx++] = idx - (iLat + 1)
           index[iidx++] = idx - 1
+          index[iidx++] = idx - (iLat + 1)
           index[iidx++] = idx - (iLat + 2)
+          index[iidx++] = idx - 1
         }
 
         ++idx
@@ -188,7 +188,9 @@ export class BliaSolutionsMesh {
         .addIndex(index)
     // PixiJS doc says it improves slighly performances
     geometry.interleave()
-    this.mesh = new PIXI.Mesh(geometry, this.shader)
+    const state = new PIXI.State()
+    state.culling = true
+    this.mesh = new PIXI.Mesh(geometry, this.shader, state)
 
     // get rid of csv
     this.data = undefined
