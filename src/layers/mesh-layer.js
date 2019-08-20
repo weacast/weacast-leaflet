@@ -37,9 +37,9 @@ let MeshLayer = ForecastLayer.extend({
   },
 
   setData (data) {
+    this.pixiRoot.removeChildren()
     this.source.setData(data)
     this.colorMap = this.source.getColorMap()
-    this.pixiRoot.removeChildren()
     this.baseLayer.redraw()
     ForecastLayer.prototype.setData.call(this, data)
   },
