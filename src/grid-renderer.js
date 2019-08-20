@@ -188,7 +188,7 @@ export class GridRenderer {
       let height = gridView.size[1]
       // allocate the arrays
       let vertices = new Float32Array(width * height * 2)
-      let colors = new Float32Array(width * height * 4)
+      let colors = new Uint8Array(width * height * 4)
       let indices = new Uint16Array((width - 1) * (height - 1) * 6)
       // build the mesh
       let verticesIndex = 0
@@ -206,11 +206,11 @@ export class GridRenderer {
           let cellValue = gridView.getValue(i, j)
           let color = chroma(this.nodata.color)
           if (cellValue !== this.nodata.value) color = this.colorMap(cellValue)
-          let rgb = color.gl()
+          let rgb = color.rgba()
           colors[colorsIndex++] = rgb[0]
           colors[colorsIndex++] = rgb[1]
           colors[colorsIndex++] = rgb[2]
-          colors[colorsIndex++] = color.alpha()
+          colors[colorsIndex++] = Math.round(rgb[3]*255) // alpha is returned [0..1]
           // Compute the indices
           if (i < (width - 1) && j < (height - 1)) {
             let index00 = (j * width) + i
@@ -229,7 +229,7 @@ export class GridRenderer {
       // Build the corresponding geometry
       let geometry=new PIXI.Geometry()
       .addAttribute('aVertexPosition', vertices, 2)
-      .addAttribute('aVertexColor', colors, 4)
+      .addAttribute('aVertexColor', colors, 4, true, PIXI.TYPES.UNSIGNED_BYTE)
       .addIndex(indices)
       // Build the corresponding mesh
       let mesh=new PIXI.Mesh(geometry, this.shader)
