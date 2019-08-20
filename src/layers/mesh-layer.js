@@ -48,8 +48,9 @@ let MeshLayer = ForecastLayer.extend({
     if (this.pixiRoot.children.length === 0) {
       this.source.buildMesh(utils)
       const mesh = this.source.getMesh()
-      if (mesh !== undefined)
+      if (mesh !== undefined) {
         this.pixiRoot.addChild(mesh)
+      }
     }
     let renderer = utils.getRenderer()
     renderer.render(this.pixiRoot)

@@ -4,7 +4,7 @@ import Papa from 'papaparse'
 import { createColorMap } from 'weacast-core/client'
 
 export class BliaSolutionsMesh {
-  constructor() {
+  constructor () {
     this.options = undefined
     this.data = undefined
     this.dataBounds = undefined
@@ -15,7 +15,7 @@ export class BliaSolutionsMesh {
     this.latLngBounds = undefined
   }
 
-  initialize(options) {
+  initialize (options) {
     this.options = options
 
     // make sure options has the required fields
@@ -48,7 +48,7 @@ export class BliaSolutionsMesh {
         })
   }
 
-  async fetchData(moment) {
+  async fetchData (moment) {
     const url = ''.concat('https://www.bliasolutions.com/UKAir2017/'
                           , this.options.elements[0]
                           , `_${moment.format('YYYY_MM_DD_HH')}.csv`)
@@ -57,22 +57,19 @@ export class BliaSolutionsMesh {
 
     const csv = Papa.parse(txt)
 
-    // post process data
-    {
-      // get rid of headers
-      csv.data.shift()
-      // turn data into float
-      for (let i = 0; i < csv.data.length; ++i) {
-        csv.data[i][1] = parseFloat(csv.data[i][1])
-        csv.data[i][2] = parseFloat(csv.data[i][2])
-        csv.data[i][3] = parseFloat(csv.data[i][3])
-      }
+    // get rid of headers
+    csv.data.shift()
+    // turn data into float
+    for (let i = 0; i < csv.data.length; ++i) {
+      csv.data[i][1] = parseFloat(csv.data[i][1])
+      csv.data[i][2] = parseFloat(csv.data[i][2])
+      csv.data[i][3] = parseFloat(csv.data[i][3])
     }
 
     return csv
   }
 
-  setData(csv) {
+  setData (csv) {
     // compute bounds
     const bounds = csv.data.reduce((accu, value) => {
       let minLat = accu[0]
@@ -108,18 +105,17 @@ export class BliaSolutionsMesh {
     this.dataBounds = bounds
   }
 
-  getColorMap() {
+  getColorMap () {
     return this.colorMap
   }
 
-  getSpatialBounds() {
+  getSpatialBounds () {
     return this.latLngBounds
   }
 
-  buildMesh(utils) {
+  buildMesh (utils) {
     const csv = this.data
-    if (csv === undefined)
-      return
+    if (csv === undefined) { return }
 
     const bounds = this.dataBounds
 
@@ -165,8 +161,7 @@ export class BliaSolutionsMesh {
       const lon = csv.data[row][2]
       const val = csv.data[row][3]
 
-      if (isNaN(lat) || isNaN(lon))
-        continue
+      if (isNaN(lat) || isNaN(lon)) { continue }
 
       // index in grid based on lat lon
       const y = Math.ceil((lat - bounds[0]) / 0.05)
@@ -199,7 +194,7 @@ export class BliaSolutionsMesh {
     this.data = undefined
   }
 
-  getMesh() {
+  getMesh () {
     return this.mesh
   }
 }
