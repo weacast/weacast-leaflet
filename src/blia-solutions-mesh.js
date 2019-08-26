@@ -168,14 +168,6 @@ export class BliaSolutionsMesh {
       const o = y + x * (iLat + 1)
 
       const mapped = this.colorMap(val)
-      /*
-      const rgb = mapped.gl()
-      color[4 * o] = rgb[0]
-      color[4 * o + 1] = rgb[1]
-      color[4 * o + 2] = rgb[2]
-      color[4 * o + 3] = 1.0
-      */
-
       const rgb = mapped.rgb()
       color[4 * o] = rgb[0]
       color[4 * o + 1] = rgb[1]
@@ -186,7 +178,6 @@ export class BliaSolutionsMesh {
     // build mesh
     let geometry = new PIXI.Geometry()
         .addAttribute('position', position, 2)
-        // .addAttribute('color', color, 4)
         .addAttribute('color', color, 4, true, PIXI.TYPES.UNSIGNED_BYTE)
         .addIndex(index)
     // PixiJS doc says it improves slighly performances
