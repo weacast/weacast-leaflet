@@ -256,22 +256,25 @@ export class BliaSolutionsMesh {
     this.dataBounds = bounds
 
     /* perform a few stat computations */
-    /*
     const iLat = Math.ceil((bounds[1] - bounds[0]) / 0.05)
     const iLon = Math.ceil((bounds[3] - bounds[2]) / 0.1)
     const vertexCount = (iLat + 1) * (iLon + 1)
-    const indexCount = 6 * iLat * iLon
+    const triIndexCount = 6 * iLat * iLon
+    const strIndexCount = (4 * iLat * iLon) + (iLon - 1)
     const coords32Bytes = 4 * 2 * vertexCount
     const coords16Bytes = 2 * 2 * vertexCount
     const colorBytes = 1 * 4 * vertexCount
-    const indexBytes = 2 * indexCount
-    const total32 = coords32Bytes + colorBytes + indexBytes
-    const total16 = coords16Bytes + colorBytes + indexBytes
+    const triIndexBytes = 2 * triIndexCount
+    const strIndexBytes = 2 * strIndexCount
+    const total32Tri = coords32Bytes + colorBytes + triIndexBytes
+    const total16Tri = coords16Bytes + colorBytes + triIndexBytes
+    const total32Str = coords32Bytes + colorBytes + strIndexBytes
+    const total16Str = coords16Bytes + colorBytes + strIndexBytes
     console.log(`mesh stats:`)
-    console.log(`\t${vertexCount} vertices ${indexCount} indices`)
-    console.log(`\tcoords32=${coords32Bytes / 1024} coords16=${coords16Bytes / 1024} color=${colorBytes / 1024} index=${indexBytes / 1024}`)
-    console.log(`\twhole mesh using float32=${total32 / 1024} using float16=${total16 / 1024}`)
-    */
+    console.log(`\t${vertexCount} vertices ${triIndexCount} indices (triangles) ${strIndexCount} indices (strips)`)
+    console.log(`\tcoords32=${coords32Bytes / 1024} coords16=${coords16Bytes / 1024} color=${colorBytes / 1024} index=${triIndexBytes / 1024} (triangles) index=${strIndexBytes / 1024} (strips)`)
+    console.log(`\twhole mesh using triangles and float32=${total32Tri / 1024} using float16=${total16Tri / 1024}`)
+    console.log(`\twhole mesh using strips and float32=${total32Str / 1024} using float16=${total16Str / 1024}`)
     /**/
   }
 
@@ -347,7 +350,8 @@ export class BliaSolutionsMesh {
     // const position = new Float32Array(2 * (iLat + 1) * (iLon + 1))
     const position = new Uint16Array(2 * (iLat + 1) * (iLon + 1))
     const color = new Uint8Array(4 * (iLat + 1) * (iLon + 1))
-    const index = new Uint16Array(6 * iLat * iLon)
+    // const index = new Uint16Array(6 * iLat * iLon)
+    const index = new Uint16Array(4 * iLat * iLon + (iLon - 1))
 
     // fill grid
     let vidx = 0
@@ -365,6 +369,7 @@ export class BliaSolutionsMesh {
         position[vidx * 2] = toHalf(la / iLat)
         position[vidx * 2 + 1] = toHalf(lo / iLon)
 
+        /*
         if (lo !== 0 && la !== 0) {
           index[iidx++] = vidx
           index[iidx++] = vidx - (iLat + 1)
@@ -372,6 +377,17 @@ export class BliaSolutionsMesh {
           index[iidx++] = vidx - (iLat + 1)
           index[iidx++] = vidx - (iLat + 2)
           index[iidx++] = vidx - 1
+        }
+        */
+
+        if (lo !== 0 && la !== 0) {
+          index[iidx++] = vidx
+          index[iidx++] = vidx - (iLat + 1)
+          index[iidx++] = vidx - 1
+          index[iidx++] = vidx - (iLat + 2)
+          if (la === iLat) {
+            index[iidx++] = 65535
+          }
         }
 
         ++vidx
@@ -417,7 +433,7 @@ export class BliaSolutionsMesh {
       layerUniforms: layerUniforms
     }
     const shader = new PIXI.Shader(this.program, uniforms)
-    const mesh = new PIXI.Mesh(geometry, shader, state)
+    const mesh = new PIXI.Mesh(geometry, shader, state, PIXI.DRAW_MODES.TRIANGLE_STRIP)
     return mesh
   }
 }
