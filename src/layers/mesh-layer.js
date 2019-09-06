@@ -46,8 +46,8 @@ let MeshLayer = ForecastLayer.extend({
 
   renderMesh (utils) {
     if (this.pixiRoot.children.length === 0) {
-      this.source.buildMesh(utils)
-      const mesh = this.source.getMesh()
+      const mesh = this.source.buildMesh(utils)
+      this.source.shader.uniforms.zoomLevel = this.baseLayer._initialZoom
       if (mesh !== undefined) {
         this.pixiRoot.addChild(mesh)
       }
