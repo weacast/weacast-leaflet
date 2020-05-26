@@ -46,7 +46,7 @@
     "lib": "lib"
   },
   "dependencies": {
-    "chroma-js": "^1.3.4",
+    "chroma-js": "^2.1.0",
     "leaflet": "^1.0.3",
     "leaflet-pixi-overlay": "1.8.1",
     "leaflet-velocity": "^1.2.2",
